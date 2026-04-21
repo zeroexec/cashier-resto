@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - RestoEase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-orange { background: rgba(255, 120, 0, 0.05); border-right: 1px solid rgba(255, 120, 0, 0.1); }
+        .rounded-custom { border-radius: 8px; }
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255, 120, 0, 0.2); border-radius: 10px; }
+        /* Overlay untuk mencegah flickering saat pengecekan auth */
+        #auth-overlay {
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen overflow-hidden flex">
+
+    <div id="auth-overlay">
+        <div class="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+
+    <aside class="w-64 h-full bg-white glass-orange flex flex-col z-20">
+        <div class="p-6 border-b border-gray-100">
+            <div class="text-2xl font-bold text-orange-600 tracking-tight">RestoEase</div>
+            <p class="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Sistem Kasir v1.0</p>
+        </div>
+
+        <nav id="dynamic-menu" class="flex-1 px-4 py-6 space-y-6 sidebar-scroll overflow-y-auto">
+            <div class="flex items-center justify-center h-20 text-gray-400 text-xs italic">
+                Memuat menu...
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-gray-100">
+            <div class="flex items-center p-2 rounded-custom bg-gray-50">
+                <div class="w-8 h-8 bg-orange-200 rounded-custom flex-shrink-0 flex items-center justify-center">
+                    <div id="db-indicator" class="w-4 h-4 bg-gray-400 rounded-full transition-colors duration-500"></div>
+                </div>
+                <div class="ml-3 overflow-hidden">
+                    <p id="user-name" class="text-xs font-bold text-gray-800 truncate">Memuat...</p>
+                    <p id="db-status" class="text-[10px] text-gray-500 truncate">Menghubungkan...</p>
+                </div>
+            </div>
+            <button id="btn-logout" class="mt-4 flex items-center justify-center w-full py-2 text-xs font-bold text-red-500 border border-red-100 rounded-custom hover:bg-red-50 transition">
+                Keluar Sistem
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-gray-100 relative">
+        <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
+            <h2 class="font-bold text-gray-700">Panel Kendali</h2>
+            <div id="connection-tag" class="text-[10px] font-bold px-3 py-1 bg-gray-100 rounded-full text-gray-500 uppercase">
+                Supabase Offline
+            </div>
+        </header>
+
+        <div class="flex-1 p-6">
+            <div class="w-full h-full bg-white rounded-custom shadow-sm overflow-hidden border border-gray-200">
+                <iframe name="contentFrame" src="stats.html" class="w-full h-full border-none"></iframe>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { supabase } from './supa/supa.js';
+
+        async function checkAuth() {
+            const { data: { session }, error } = await supabase.auth.getSession();
+
+            if (error || !session) {
+                // Jika tidak ada sesi, arahkan ke login
+                window.location.href = 'login.html';
+            } else {
+                // Jika ada sesi, tampilkan email user dan hapus overlay loading
+                document.getElementById('user-name').innerText = session.user.email.split('@')[0];
+                document.getElementById('auth-overlay').style.display = 'none';
+                initDashboard();
+            }
+        }
+
+        async function initDashboard() {
+            const menuContainer = document.getElementById('dynamic-menu');
+            
+            try {
+                const { data: menus, error } = await supabase
+                    .from('sidebar_menu')
+                    .select('*')
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true });
+
+                if (error) throw error;
+
+                const groupedMenu = menus.reduce((acc, item) => {
+                    if (!acc[item.category]) acc[item.category] = [];
+                    acc[item.category].push(item);
+                    return acc;
+                }, {});
+
+                menuContainer.innerHTML = ''; 
+                
+                for (const category in groupedMenu) {
+                    const section = document.createElement('div');
+                    section.innerHTML = `
+                        <div class="text-[11px] font-bold text-gray-400 px-3 mb-2 uppercase tracking-wider">${category}</div>
+                        <div class="space-y-1">
+                            ${groupedMenu[category].map(item => `
+                                <a href="${item.path}" target="contentFrame" class="menu-link flex items-center px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-orange-50 hover:text-orange-600 rounded-custom transition group">
+                                    <div class="w-2 h-2 bg-gray-300 group-hover:bg-orange-400 rounded-full mr-3 transition"></div>
+                                    ${item.label}
+                                </a>
+                            `).join('')}
+                        </div>
+                    `;
+                    menuContainer.appendChild(section);
+                }
+
+                document.getElementById('db-indicator').className = 'w-4 h-4 bg-green-500 rounded-full';
+                document.getElementById('db-status').innerText = 'Database Connected';
+                document.getElementById('connection-tag').innerText = 'Supabase Online';
+                document.getElementById('connection-tag').className = 'text-[10px] font-bold px-3 py-1 bg-green-100 text-green-600 rounded-full uppercase';
+
+            } catch (err) {
+                console.error('Gagal memuat menu:', err);
+                menuContainer.innerHTML = `<div class="p-4 text-red-500 text-xs text-center font-bold italic">Gagal memuat navigasi.</div>`;
+            }
+        }
+
+        // Fungsi Logout
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            const { error } = await supabase.auth.signOut();
+            if (!error) window.location.href = 'login.html';
+        });
+
+        // Jalankan pengecekan auth saat halaman dimuat
+        checkAuth();
+    </script>
+</body>
+</html>

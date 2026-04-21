@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - RestoEase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-orange {
+            background: rgba(255, 120, 0, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 120, 0, 0.1);
+        }
+        .bg-orange-gradient {
+            background: linear-gradient(135deg, #ff7800 0%, #ff5400 100%);
+        }
+        .rounded-custom {
+            border-radius: 8px;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex items-center justify-center p-6">
+
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-orange-600 tracking-tight">RestoEase</h1>
+            <p class="text-gray-500 text-sm mt-2">Sistem Manajemen Kasir Digital</p>
+        </div>
+
+        <div class="bg-white p-8 shadow-sm border border-gray-100 rounded-custom relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+
+            <div id="login-section">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">Masuk ke Akun</h2>
+                <form id="form-login" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Email</label>
+                        <input type="email" id="login-email" required
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-custom text-sm focus:outline-none focus:border-orange-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Kata Sandi</label>
+                        <input type="password" id="login-password" required
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-custom text-sm focus:outline-none focus:border-orange-500 transition">
+                    </div>
+                    <button type="submit" class="w-full bg-orange-gradient text-white py-3 rounded-custom font-bold text-sm shadow-lg shadow-orange-200 hover:opacity-90 transition">
+                        Masuk Sekarang
+                    </button>
+                </form>
+                <p class="text-center text-sm text-gray-500 mt-6">
+                    Belum punya akun? 
+                    <button onclick="toggleForm()" class="text-orange-600 font-bold hover:underline">Daftar</button>
+                </p>
+            </div>
+
+            <div id="register-section" class="hidden">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">Daftar Akun Baru</h2>
+                <form id="form-register" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Email</label>
+                        <input type="email" id="reg-email" required
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-custom text-sm focus:outline-none focus:border-orange-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Kata Sandi</label>
+                        <input type="password" id="reg-password" required
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-custom text-sm focus:outline-none focus:border-orange-500 transition">
+                    </div>
+                    <button type="submit" class="w-full bg-gray-800 text-white py-3 rounded-custom font-bold text-sm hover:bg-black transition">
+                        Buat Akun
+                    </button>
+                </form>
+                <p class="text-center text-sm text-gray-500 mt-6">
+                    Sudah punya akun? 
+                    <button onclick="toggleForm()" class="text-orange-600 font-bold hover:underline">Masuk</button>
+                </p>
+            </div>
+
+            <div id="message" class="hidden mt-4 p-3 rounded-custom text-xs font-medium text-center"></div>
+        </div>
+
+        <p class="text-center text-gray-400 text-xs mt-8">
+            &copy; 2026 RestoEase. Sistem Kasir Terpadu.
+        </p>
+    </div>
+
+    <script type="module">
+        import { supabase } from './supa/supa.js';
+
+        const loginSection = document.getElementById('login-section');
+        const registerSection = document.getElementById('register-section');
+        const messageDiv = document.getElementById('message');
+
+        // Fungsi Toggle Tampilan
+        window.toggleForm = () => {
+            loginSection.classList.toggle('hidden');
+            registerSection.classList.toggle('hidden');
+            messageDiv.classList.add('hidden');
+        };
+
+        function showMessage(text, isError = false) {
+            messageDiv.innerText = text;
+            messageDiv.className = `mt-4 p-3 rounded-custom text-xs font-medium text-center ${isError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`;
+            messageDiv.classList.remove('hidden');
+        }
+
+        // Handle Pendaftaran
+        document.getElementById('form-register').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+            });
+
+            if (error) {
+                showMessage(error.message, true);
+            } else {
+                showMessage("Pendaftaran berhasil! Silakan cek email untuk verifikasi atau langsung login.");
+            }
+        });
+
+        // Handle Login
+        document.getElementById('form-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) {
+                showMessage(error.message, true);
+            } else {
+                window.location.href = 'dashboard.html';
+            }
+        });
+    </script>
+</body>
+</html>
